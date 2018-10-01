@@ -2,8 +2,8 @@
 //  twitter_alamofire_demoTests.swift
 //  twitter_alamofire_demoTests
 //
-//  Created by Jinan Huang on 9/24/18.
-//  Copyright © 2018 Jinan Huang. All rights reserved.
+//  Created by Charles Hieger on 4/4/17.
+//  Copyright © 2017 Charles Hieger. All rights reserved.
 //
 
 import XCTest
