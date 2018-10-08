@@ -8,8 +8,13 @@
 
 import UIKit
 
-class TimelineViewController: UIViewController, UITableViewDataSource {
+class TimelineViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, ComposeViewControllerDelegate {
+    func did(post: Tweet) {
+        self.fetchTweet()
+    }
+    
     @IBOutlet weak var tableView: UITableView!
+    @IBOutlet weak var activityIndicator: UIActivityIndicatorView!
     
     var tweets: [Tweet] = []
     var refreshControl:UIRefreshControl!
@@ -17,67 +22,117 @@ class TimelineViewController: UIViewController, UITableViewDataSource {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        refreshControl = UIRefreshControl()
-        refreshControl.addTarget(self, action: #selector(refreshControlAction(_:)), for: UIControlEvents.valueChanged)
-        tableView.insertSubview(refreshControl, at: 0)
-        
+        tableView.delegate = self
         tableView.dataSource = self
-        tableView.rowHeight = UITableViewAutomaticDimension
-        tableView.estimatedRowHeight = 120
         
-        getHomeline()
+        tableView.rowHeight = UITableViewAutomaticDimension
+        tableView.estimatedRowHeight = 150
         
         // Do any additional setup after loading the view.
+        
+        refreshControl = UIRefreshControl()
+        refreshControl.addTarget(self, action: #selector(TimelineViewController.didPullToRefresh(_:)), for: .valueChanged)
+        tableView.insertSubview(refreshControl, at: 0)
+        self.activityIndicator.startAnimating()
+        
+        APIManager.shared.getHomeTimeLine{ (tweets, error) in
+            if let tweets = tweets {
+                self.tweets = tweets
+                self.tableView.reloadData()
+                self.refreshControl.endRefreshing()
+                self.activityIndicator.stopAnimating()
+            }else if let error = error {
+                print("Error geeting home timeline: " + error.localizedDescription)
+                self.myAlert(title: "Cannot Get Tweets", message: "The Internet connection appears to be offline.")
+            }
+            
+        }
     }
-
-
+    
+    func myAlert(title: String, message: String)
+    {
+        let alertController = UIAlertController(title: "Cannot Get Tweets", message: "The Internet connection appears to be offline.", preferredStyle: .alert)
+        alertController.addAction(UIAlertAction(title: "TRY AGAIN", style: .default, handler: { (action) in
+            // handle response here.
+            alertController.dismiss(animated: true, completion: nil)
+        }))
+        self.present(alertController, animated: true, completion: nil)
+    }
+    
+    @objc func didPullToRefresh(_ refreshControl: UIRefreshControl)
+    {
+        //fetchTweet()
+        
+        APIManager.shared.getNewHomeTimeLine{ (tweets, error) in
+            if let tweets = tweets {
+                self.tweets = tweets
+                self.tableView.reloadData()
+                self.refreshControl.endRefreshing()
+                self.activityIndicator.stopAnimating()
+            }else if let error = error {
+                print("Error geeting home timeline: " + error.localizedDescription)
+                self.myAlert(title: "Cannot Get Tweets", message: "The Internet connection appears to be offline.")
+            }
+            
+        }
+        self.refreshControl.endRefreshing()
+    }
+    
+    func fetchTweet() {
+        APIManager.shared.getHomeTimeLine { (tweets, err) in
+            if let tweets = tweets {
+                self.tweets = tweets
+                self.tableView.reloadData()
+                self.refreshControl.endRefreshing()
+                self.activityIndicator.stopAnimating()
+            } else if let err = err {
+                print(err.localizedDescription)
+                self.myAlert(title: "Cannot Get Tweets", message: "The Internet connection appears to be offline.")
+            }
+        }
+    }
+    
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
     }
     
-    @IBAction func tapLogout(_ sender: Any) {
-        APIManager.shared.logout()
-    }
-    
-    public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int{
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return tweets.count
     }
     
-    public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell{
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "TweetCell", for: indexPath) as! TweetCell
         cell.tweet = tweets[indexPath.row]
         return cell
     }
     
-    func getHomeline(){
-        APIManager.shared.getHomeTimeLine { (tweets, error) in
-            if let tweets = tweets {
-                self.tweets = tweets
-                self.tableView.reloadData()
-                
-            } else if let error = error {
-                print("Error getting home timeline: " + error.localizedDescription)
-            }
-        }
-        refreshControl.endRefreshing()
-        
-    }
     
-    func refreshControlAction(_ refreshControl: UIRefreshControl){
-        getHomeline()
+    @IBAction func didTapLogout(_ sender: Any) {
+        APIManager.shared.logout()
     }
     
     
-    
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destinationViewController.
-        // Pass the selected object to the new view controller.
+        if let cell = sender as? UITableViewCell {
+            if let indexPath = tableView.indexPath(for: cell) {
+                let tweet = tweets[indexPath.row]
+                let detailViewController = segue.destination as! DetailViewController
+                detailViewController.tweet = tweet
+            }
+        }else if segue.identifier == "composeSegue"{
+            let composeViewController = segue.destination as! ComposeViewController
+            composeViewController.delegate = self
+            
+        }else if segue.identifier == "profileSegue" {
+            print("profile view button")
+        }
     }
-    */
-
+    
+    
 }
+
